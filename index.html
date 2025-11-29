@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบออกใบรับเงิน (Final Fix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* ตั้งค่าฟอนต์และพื้นฐาน */
+        body { box-sizing: border-box; font-family: 'Sarabun', sans-serif; }
+        
+        @page { size: A4; margin: 2.54cm; }
+
+        .form-section {
+            background: white; padding: 0; margin: 0 auto; width: 210mm; position: relative;
+        }
+
+        .screen-wrapper {
+            padding: 40px; background: white; width: 210mm; min-height: 297mm; margin: 0 auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; align-items: baseline; flex-wrap: wrap; }
+        .form-label { white-space: nowrap; font-weight: 600; color: #333; }
+        
+        .form-input {
+            border: none; border-bottom: 1px dotted #333; padding: 0 5px; outline: none;
+            background: transparent; font-size: 16px; color: #000;
+            min-width: 50px; 
+        }
+        .form-input:focus { border-bottom: 1px solid #667eea; background: #f0f7ff; }
+
+        /* Custom Checkbox Style */
+        .custom-checkbox { display: none; }
+        .check-box-display {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; border: 1px solid #333; margin-right: 5px;
+            vertical-align: middle; background: white; cursor: pointer; font-size: 14px; line-height: 1;
+        }
+        .custom-checkbox:checked + .check-box-display::after { content: '✓'; font-weight: bold; color: black; }
+
+        /* Date Icon Style */
+        .date-icon-wrapper {
+            position: relative; display: inline-block; cursor: pointer; width: 30px; height: 30px;
+            text-align: center; line-height: 30px; margin-left: 5px; vertical-align: middle;
+        }
+        .date-icon-emoji { font-size: 20px; }
+        .invisible-date-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        /* Company Dropdown Helper */
+        .company-select-helper {
+            width: 20px; border: none; background: transparent; cursor: pointer; color: #666; font-size: 12px;
+            margin-left: -5px;
+        }
+        .company-select-helper:focus { outline: none; }
+
+        /* Hidden Span for Measuring Text Width */
+        #measure_span {
+            visibility: hidden; white-space: pre; font-family: 'Sarabun', sans-serif; font-size: 16px; position: absolute; top: -9999px;
+        }
+
+        /* Print Styles */
+        @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .screen-wrapper { width: 100%; margin: 0; box-shadow: none; padding: 0; }
+            .form-input { border-bottom: 1px dotted #000; }
+            ::placeholder { color: transparent; }
+            .date-icon-wrapper, .company-select-helper { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <span id="measure_span"></span>
+
+    <div class="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
+        
+        <div class="no-print max-w-[210mm] mx-auto mb-4 flex justify-between items-center px-4">
+            <h2 class="text-xl font-bold text-gray-700">ระบบออกใบรับเงิน</h2>
+            <div class="space-x-2">
+                <button onclick="window.location.reload()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded shadow">ล้างค่าใหม่</button>
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow font-bold">🖨️ พิมพ์</button>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <h1 style="text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px;">ใบรับเงิน</h1>
+            
+            <form id="receiptForm" onsubmit="saveReceipt(event)">
+                
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px;">
+                    <span class="form-label">วันที่</span>
+                    <input type="text" id="receipt_date_text" class="form-input" style="width: 200px; text-align: center; flex: none;" readonly placeholder="-- เลือกวันที่ --">
+                    <div class="date-icon-wrapper no-print" title="คลิกเพื่อเลือกวันที่">
+                        <span class="date-icon-emoji">📅</span>
+                        <input type="date" id="receipt_date_picker" class="invisible-date-input" onchange="updateThaiDate()">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <span class="form-label">ข้าพเจ้า</span> 
+                    <input type="text" id="full_name" class="form-input" placeholder="ชื่อ-นามสกุล" style="flex: 1;">
+                </div>
+                <div class="form-row">
+                    <span class="form-label">ที่อยู่</span> 
+                    <input type="text" id="address" class="form-input" placeholder="บ้านเลขที่ หมู่ ซอย ถนน..." style="flex: 1;">
+                </div>
+                <div class="form-row">
+                    <span class="form-label">ตำบล/แขวง</span> <input type="text" id="subdistrict" class="form-input" style="flex: 1;">
+                    <span class="form-label">อำเภอ/เขต</span> <input type="text" id="district" class="form-input" style="flex: 1;">
+                </div>
+                <div class="form-row">
+                    <span class="form-label">จังหวัด</span> <input type="text" id="province" class="form-input" style="flex: 1;">
+                    <span class="form-label">เลขบัตรประจำตัวประชาชน</span> 
+                    <input type="text" id="id_card" class="form-input" maxlength="17" placeholder="x-xxxx-xxxxx-xx-x" oninput="formatIDCard(this)" style="flex: 1;">
+                </div>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <span class="form-label">ได้รับเงินเพื่อชำระค่า</span> 
+                    <input type="text" id="payment_for" class="form-input" placeholder="ระบุรายการ..." style="flex: 1;">
+                </div>
+
+                <div class="form-row">
+                    <span class="form-label">จำนวนเงิน</span> 
+                    <input type="text" id="amount" class="form-input" placeholder="0.00" style="max-width: 150px; text-align: right;" 
+                           oninput="validateNumber(this)" 
+                           onblur="formatCurrency(this); updateBahtTextFromInput(this);" 
+                           onfocus="cleanCurrency(this)">
+                    <span class="form-label">บาท</span>
+                    <span id="baht_text_display" style="color: #666; font-style: italic; margin-left: 10px;">(.........)</span>
+                </div>
+
+                <div class="form-row">
+                    <span class="form-label">จาก</span>
+                    
+                    <div style="display: flex; align-items: center;">
+                        <input type="text" id="receiver_name" class="form-input" 
+                               placeholder="ระบุชื่อผู้รับเงิน/บริษัท..." 
+                               autocomplete="off"
+                               oninput="autoResize(this)"
+                               style="min-width: 250px; width: 250px;"> 
+                               
+                        <select class="company-select-helper no-print" onchange="pickCompany(this)" title="คลิกเพื่อเลือกจากรายชื่อ">
+                            <option value="" disabled selected>▼</option>
+                            <option value="บริษัท จิรัฏสิริ คอนสตรัคชั่น จำกัด">บริษัท จิรัฏสิริ คอนสตรัคชั่น จำกัด</option>
+                            <option value="บริษัท เมืองแสนสุข จำกัด">บริษัท เมืองแสนสุข จำกัด</option>
+                            <option value="บริษัท อินทิสดอม จำกัด">บริษัท อินทิสดอม จำกัด</option>
+                            <option value="บริษัท ยูโฮม จำกัด">บริษัท ยูโฮม จำกัด</option>
+                        </select>
+                    </div>
+
+                    <span class="form-label">ไว้เป็นที่เรียบร้อยแล้ว</span>
+                </div>
+
+                <div class="form-row" style="margin-top: 20px;">
+                    <span class="form-label">โดยชำระเป็น</span>
+                    <div class="checkbox-group" style="display: flex; gap: 2rem;">
+                        <label style="margin-right: 20px; cursor: pointer;">
+                            <input type="checkbox" name="payment_type" value="เงินสด" class="custom-checkbox" onclick="handlePaymentCheck(this)">
+                            <span class="check-box-display"></span> เงินสด
+                        </label>
+                        <label style="cursor: pointer;">
+                            <input type="checkbox" name="payment_type" value="เช็ค" class="custom-checkbox" onclick="handlePaymentCheck(this)">
+                            <span class="check-box-display"></span> เช็ค
+                        </label>
+                    </div>
+                </div>
+
+                <div id="checkDetails" style="display: none; margin-left: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px;" class="no-print-bg">
+                    <div class="form-row">
+                        <span class="form-label">ธนาคาร</span> <input type="text" id="bank_name" class="form-input" style="flex: 1;">
+                        <span class="form-label">สาขา</span> <input type="text" id="bank_branch" class="form-input" style="flex: 1;">
+                    </div>
+                    <div class="form-row">
+                        <span class="form-label">เลขที่เช็ค</span> <input type="text" id="check_number" class="form-input" style="flex: 1;">
+                        <span class="form-label">ลงวันที่</span> <input type="date" id="check_date" class="form-input" style="flex: 1;">
+                    </div>
+                </div>
+
+                <div style="margin-top: 50px; text-align: right; padding-right: 10px;">
+                    <div style="display: inline-block; text-align: center; width: 250px;">
+                        <div style="border-bottom: 1px dotted #333; height: 30px; margin-bottom: 5px;"></div>
+                        <p class="font-bold">ผู้รับเงิน</p>
+                        <div style="margin-top: 15px;">
+                            วันที่ <span style="border-bottom: 1px dotted #333; display: inline-block; width: 150px;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="no-print mt-10 text-center border-t pt-6">
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-105">
+                        💾 บันทึกรายการ
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="no-print max-w-[210mm] mx-auto mt-8 px-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">ประวัติการบันทึก</h3>
+                <button onclick="clearHistory()" class="text-red-500 hover:text-red-700 text-sm underline">ลบประวัติทั้งหมด</button>
+            </div>
+            <div id="historyList" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const picker = document.getElementById('receipt_date_picker');
+            picker.valueAsDate = new Date();
+            updateThaiDate();
+            loadHistory();
+            autoResize(document.getElementById('receiver_name'));
+        });
+
+        // --- Auto Resize Logic ---
+        function autoResize(input) {
+            const span = document.getElementById('measure_span');
+            span.innerHTML = input.value || input.placeholder;
+            const newWidth = span.offsetWidth + 30;
+            input.style.width = newWidth + 'px';
+        }
+
+        // --- New Company Picker Logic ---
+        function pickCompany(selectElement) {
+            const input = document.getElementById('receiver_name');
+            input.value = selectElement.value;
+            selectElement.selectedIndex = 0;
+            autoResize(input);
+        }
+
+        // --- Date Logic ---
+        function updateThaiDate() {
+            const picker = document.getElementById('receipt_date_picker');
+            const textDisplay = document.getElementById('receipt_date_text');
+            if(picker.value) {
+                const date = new Date(picker.value);
+                const thaiDate = date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+                textDisplay.value = thaiDate;
+            } else { textDisplay.value = ""; }
+        }
+
+        // --- Common Logic ---
+        function formatIDCard(input) {
+            let value = input.value.replace(/\D/g, '');
+            let formatted = '';
+            if (value.length > 0) formatted += value.substring(0, 1);
+            if (value.length > 1) formatted += '-' + value.substring(1, 5);
+            if (value.length > 5) formatted += '-' + value.substring(5, 10);
+            if (value.length > 10) formatted += '-' + value.substring(10, 12);
+            if (value.length > 12) formatted += '-' + value.substring(12, 13);
+            input.value = formatted;
+        }
+
+        function handlePaymentCheck(clickedBox) {
+            const boxes = document.querySelectorAll('input[name="payment_type"]');
+            if (clickedBox.checked) {
+                boxes.forEach(box => { if (box !== clickedBox) box.checked = false; });
+            }
+            const checkOption = document.querySelector('input[value="เช็ค"]');
+            const el = document.getElementById('checkDetails');
+            if(checkOption && checkOption.checked) {
+                el.style.display = 'block'; el.classList.remove('no-print-bg');
+            } else { el.style.display = 'none'; }
+        }
+
+        function validateNumber(input) { input.value = input.value.replace(/[^0-9.]/g, ''); }
+        function cleanCurrency(input) { input.value = input.value.replace(/,/g, ''); }
+        function formatCurrency(input) {
+            let valStr = input.value.replace(/,/g, '');
+            let val = parseFloat(valStr);
+            if (isNaN(val)) { input.value = ''; return; }
+            input.value = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function updateBahtTextFromInput(input) {
+            let valStr = input.value.replace(/,/g, '');
+            if(valStr) {
+                const text = ArabicNumberToText(valStr);
+                document.getElementById('baht_text_display').textContent = `(${text})`;
+            } else { document.getElementById('baht_text_display').textContent = '(.........)'; }
+        }
+
+        // --- Save & History ---
+        function saveReceipt(e) {
+            e.preventDefault();
+            const rawAmount = document.getElementById('amount').value.replace(/,/g, '');
+            const checkedBox = document.querySelector('input[name="payment_type"]:checked');
+            const paymentType = checkedBox ? checkedBox.value : 'ไม่ระบุ';
+
+            const data = {
+                id: Date.now(),
+                date: document.getElementById('receipt_date_text').value,
+                name: document.getElementById('full_name').value || 'ไม่ระบุชื่อ',
+                amount: rawAmount,
+                type: paymentType,
+                receiver: document.getElementById('receiver_name').value
+            };
+
+            if (!data.amount) { alert('กรุณาระบุจำนวนเงิน'); return; }
+
+            let history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
+            history.unshift(data);
+            localStorage.setItem('myReceipts_v10', JSON.stringify(history));
+            
+            alert('บันทึกเรียบร้อย!');
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
+            const container = document.getElementById('historyList');
+            if (history.length === 0) { container.innerHTML = '<p class="text-gray-400 text-center">ยังไม่มีประวัติ</p>'; return; }
+            container.innerHTML = history.map(item => `
+                <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-gray-800">${item.name}</div>
+                        <div class="text-sm text-gray-600">${item.date} | ${item.type}</div>
+                        <div class="text-xs text-gray-500 mt-1">รับโดย: ${item.receiver || '-'}</div>
+                    </div>
+                    <div class="text-right"><div class="font-bold text-lg text-green-600">${parseFloat(item.amount).toLocaleString()} บ.</div><button onclick="deleteItem(${item.id})" class="text-xs text-red-500 hover:underline mt-1">ลบ</button></div>
+                </div>
+            `).join('');
+        }
+        function deleteItem(id) {
+            if(!confirm('ยืนยันการลบ?')) return;
+            let history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('myReceipts_v10', JSON.stringify(history));
+            loadHistory();
+        }
+        function clearHistory() { if(confirm('ยืนยันลบประวัติทั้งหมด?')) { localStorage.removeItem('myReceipts_v10'); loadHistory(); } }
+
+        function ArabicNumberToText(Number) {
+            var Number = CheckNumber(Number);
+            var NumberArray = new Array("ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "สิบ");
+            var DigitArray = new Array("", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน");
+            var BahtText = "";
+            if (isNaN(Number)) { return ""; }
+            if ((Number - 0) > 9999999.9999) { return "จำนวนเงินมากเกินไป"; }
+            Number = Number.split(".");
+            if (Number[1].length > 0) { Number[1] = Number[1].substring(0, 2); }
+            var NumberLen = Number[0].length - 0;
+            for (var i = 0; i < NumberLen; i++) {
+                var tmp = Number[0].substring(i, i + 1) - 0;
+                if (tmp != 0) {
+                    if ((i == (NumberLen - 1)) && (tmp == 1)) { BahtText += "เอ็ด"; }
+                    else if ((i == (NumberLen - 2)) && (tmp == 2)) { BahtText += "ยี่"; }
+                    else if ((i == (NumberLen - 2)) && (tmp == 1)) { BahtText += ""; }
+                    else { BahtText += NumberArray[tmp]; }
+                    BahtText += DigitArray[NumberLen - i - 1];
+                }
+            }
+            BahtText += "บาท";
+            if ((Number[1] == "0") || (Number[1] == "00")) { BahtText += "ถ้วน"; } else {
+                var DecimalLen = Number[1].length - 0;
+                for (var i = 0; i < DecimalLen; i++) {
+                    var tmp = Number[1].substring(i, i + 1) - 0;
+                    if (tmp != 0) {
+                        if ((i == (DecimalLen - 1)) && (tmp == 1)) { BahtText += "เอ็ด"; }
+                        else if ((i == (DecimalLen - 2)) && (tmp == 2)) { BahtText += "ยี่"; }
+                        else if ((i == (DecimalLen - 2)) && (tmp == 1)) { BahtText += ""; }
+                        else { BahtText += NumberArray[tmp]; }
+                        BahtText += DigitArray[DecimalLen - i - 1];
+                    }
+                }
+                BahtText += "สตางค์";
+            }
+            return BahtText;
+        }
+        function CheckNumber(Number) {
+            var decimal = false;
+            Number = Number.toString();
+            Number = Number.replace(/ |,|บาท|฿/gi, '');
+            for (var i = 0; i < Number.length; i++) { if (Number[i] == '.') { decimal = true; } }
+            if (decimal == false) { Number = Number + '.00'; }
+            return Number;
+        }
+    </script>
+</body>
+</html>
