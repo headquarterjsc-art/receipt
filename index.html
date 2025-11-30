@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบออกใบรับเงิน (Auto Sync)</title>
+    <title>ระบบออกใบรับเงิน (Unlimited Amount)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -74,7 +74,13 @@
 
             .no-print, .no-print-bg { display: none !important; }
             .form-input { border-bottom: 1px dotted #000; }
-            ::placeholder { color: transparent; }
+            
+            /* FORCE HIDE PLACEHOLDER */
+            ::-webkit-input-placeholder { color: transparent !important; opacity: 0 !important; text-shadow: none !important; }
+            ::-moz-placeholder { color: transparent !important; opacity: 0 !important; text-shadow: none !important; }
+            :-ms-input-placeholder { color: transparent !important; opacity: 0 !important; text-shadow: none !important; }
+            ::placeholder { color: transparent !important; opacity: 0 !important; text-shadow: none !important; }
+            
             .date-icon-wrapper, .select-helper { display: none !important; }
         }
     </style>
@@ -155,9 +161,8 @@
                     <span class="form-label">จาก</span>
                     <input type="text" id="receiver_name" class="form-input" 
                            autocomplete="off"
-                           placeholder="ระบุชื่อบริษัท/ผู้รับเงิน"
-                           oninput="autoResize(this)"
-                           style="min-width: 250px;"> 
+                           placeholder="ระบุชื่อบริษัท/ผู้จ่าย"
+                           style="flex: 1; min-width: 250px;"> 
                     <span class="form-label">ไว้เป็นที่เรียบร้อยแล้ว</span>
                 </div>
 
@@ -240,16 +245,8 @@
             loadHistory();
             loadSavedCustomers();
             loadLastReceiver();
-            autoResize(document.getElementById('receiver_name'));
             updateBahtTextFromInput(document.getElementById('amount'));
         });
-
-        // --- Auto Resize ---
-        function autoResize(input) {
-            const span = document.getElementById('measure_span');
-            span.innerHTML = input.value;
-            input.style.width = Math.max(span.offsetWidth + 30, 250) + 'px'; 
-        }
 
         // --- Date Logic ---
         function updateThaiDate() {
@@ -308,10 +305,9 @@
         }
 
         // ============================================
-        // 🔄 CUSTOMER SYNC LOGIC (หัวใจสำคัญใหม่)
+        // 🔄 CUSTOMER SYNC LOGIC
         // ============================================
         
-        // ฟังก์ชั่นนี้จะสร้างรายชื่อลูกค้าใน Dropdown ใหม่ทั้งหมด โดยดูจาก History เท่านั้น
         function rebuildCustomersFromHistory() {
             const history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
             const uniqueCustomers = {};
@@ -321,7 +317,7 @@
                     uniqueCustomers[item.name] = {
                         name: item.name,
                         address: item.address,
-                        subdistrict: item.subdistrict, 
+                        subdistrict: item.subdistrict,
                         district: item.district,
                         province: item.province,
                         idCard: item.idCard
@@ -373,9 +369,7 @@
         function loadLastReceiver() {
             const lastReceiver = localStorage.getItem('lastReceiver_v1');
             if (lastReceiver) {
-                const input = document.getElementById('receiver_name');
-                input.value = lastReceiver;
-                autoResize(input);
+                document.getElementById('receiver_name').value = lastReceiver;
             }
         }
 
@@ -426,12 +420,10 @@
                 receiver: receiver
             };
 
-            // 1. บันทึกลง History
             let history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
             history.unshift(data);
             localStorage.setItem('myReceipts_v10', JSON.stringify(history));
 
-            // 2. สั่ง Sync รายชื่อลูกค้าใหม่ทันที
             rebuildCustomersFromHistory();
 
             alert('✅ บันทึกข้อมูลเรียบร้อย');
@@ -476,57 +468,69 @@
                 localStorage.removeItem('myReceipts_v10');     
                 localStorage.removeItem('savedCustomers_v1');  
                 
-                loadHistory();      
-                loadSavedCustomers();
+                loadHistory();       
+                loadSavedCustomers(); 
                 
                 alert('✅ ล้างข้อมูลทั้งหมดเรียบร้อย');
             }
         }
 
+        // ============================================
+        // 🔢 NEW: UNLIMITED BAHT TEXT FUNCTION
+        // ============================================
         function ArabicNumberToText(Number) {
-            var Number = CheckNumber(Number);
-            var NumberArray = new Array("ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "สิบ");
-            var DigitArray = new Array("", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน");
-            var BahtText = "";
-            if (isNaN(Number)) { return ""; }
-            if ((Number - 0) > 9999999.9999) { return "จำนวนเงินมากเกินไป"; }
-            Number = Number.split(".");
-            if (Number[1].length > 0) { Number[1] = Number[1].substring(0, 2); }
-            var NumberLen = Number[0].length - 0;
-            for (var i = 0; i < NumberLen; i++) {
-                var tmp = Number[0].substring(i, i + 1) - 0;
-                if (tmp != 0) {
-                    if ((i == (NumberLen - 1)) && (tmp == 1)) { BahtText += "เอ็ด"; }
-                    else if ((i == (NumberLen - 2)) && (tmp == 2)) { BahtText += "ยี่"; }
-                    else if ((i == (NumberLen - 2)) && (tmp == 1)) { BahtText += ""; }
-                    else { BahtText += NumberArray[tmp]; }
-                    BahtText += DigitArray[NumberLen - i - 1];
-                }
-            }
-            BahtText += "บาท";
-            if ((Number[1] == "0") || (Number[1] == "00")) { BahtText += "ถ้วน"; } else {
-                var DecimalLen = Number[1].length - 0;
-                for (var i = 0; i < DecimalLen; i++) {
-                    var tmp = Number[1].substring(i, i + 1) - 0;
-                    if (tmp != 0) {
-                        if ((i == (DecimalLen - 1)) && (tmp == 1)) { BahtText += "เอ็ด"; }
-                        else if ((i == (DecimalLen - 2)) && (tmp == 2)) { BahtText += "ยี่"; }
-                        else if ((i == (DecimalLen - 2)) && (tmp == 1)) { BahtText += ""; }
-                        else { BahtText += NumberArray[tmp]; }
-                        BahtText += DigitArray[DecimalLen - i - 1];
-                    }
-                }
-                BahtText += "สตางค์";
-            }
-            return BahtText;
+            Number = Number.replace(/,/g, '');
+            var number = parseFloat(Number);
+            if (isNaN(number)) return '...';
+            if (number == 0) return 'ศูนย์บาทถ้วน';
+
+            var n = number.toFixed(2).split('.');
+            var baht = n[0];
+            var satang = n[1];
+            var text = "";
+
+            if (parseInt(baht) > 0) text += processThaiNumber(baht) + "บาท";
+            if (parseInt(satang) > 0) text += processThaiNumber(satang) + "สตางค์";
+            else text += "ถ้วน";
+
+            return text;
         }
-        function CheckNumber(Number) {
-            var decimal = false;
-            Number = Number.toString();
-            Number = Number.replace(/ |,|บาท|฿/gi, '');
-            for (var i = 0; i < Number.length; i++) { if (Number[i] == '.') { decimal = true; } }
-            if (decimal == false) { Number = Number + '.00'; }
-            return Number;
+
+        function processThaiNumber(numberStr) {
+            var text = "";
+            var digit_text = ["ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+            var unit_text = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน"];
+            var len = numberStr.length;
+
+            for (var i = 0; i < len; i++) {
+                var digit = parseInt(numberStr.charAt(i));
+                var pos = len - i - 1;
+                var unit = pos % 6;
+
+                if (digit > 0) {
+                    if (unit == 0 && digit == 1 && pos > 0 && i != len - 1 && numberStr.charAt(i-1) != '0') {
+                        // Logic for "Et" (101, etc) - simplified for robustness
+                        text += "เอ็ด";
+                    } else if (i == len - 1 && digit == 1 && len > 1) {
+                        text += "เอ็ด"; // Last digit 1 (e.g. 11, 21)
+                    } else if (unit == 1 && digit == 1) {
+                        text += ""; // 10 -> Sip (No Nueng)
+                    } else if (unit == 1 && digit == 2) {
+                        text += "ยี่"; // 20 -> Yee
+                    } else {
+                        text += digit_text[digit];
+                    }
+
+                    if (unit == 1) text += "สิบ";
+                    else if (unit > 1) text += unit_text[unit];
+                }
+
+                // Add "Larn" logic (Million)
+                if (unit == 0 && pos > 0) {
+                    text += "ล้าน";
+                }
+            }
+            return text;
         }
     </script>
 </body>
