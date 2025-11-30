@@ -153,13 +153,11 @@
 
                 <div class="form-row">
                     <span class="form-label">จาก</span>
-                    <div style="display: flex; align-items: center; flex: 1;">
-                        <input type="text" id="receiver_name" class="form-input" 
-                               autocomplete="off"
-                               placeholder="ระบุชื่อบริษัท/ผู้รับเงิน"
-                               oninput="autoResize(this)"
-                               style="min-width: 250px; width: 100%;"> 
-                    </div>
+                    <input type="text" id="receiver_name" class="form-input" 
+                           autocomplete="off"
+                           placeholder="ระบุชื่อบริษัท/ผู้รับเงิน"
+                           oninput="autoResize(this)"
+                           style="min-width: 250px;"> 
                     <span class="form-label">ไว้เป็นที่เรียบร้อยแล้ว</span>
                 </div>
 
@@ -314,19 +312,16 @@
         // ============================================
         
         // ฟังก์ชั่นนี้จะสร้างรายชื่อลูกค้าใน Dropdown ใหม่ทั้งหมด โดยดูจาก History เท่านั้น
-        // ทำให้เมื่อลบ History รายชื่อลูกค้าที่ผูกกับ History นั้นจะหายไปด้วย
         function rebuildCustomersFromHistory() {
             const history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
             const uniqueCustomers = {};
 
-            // วนลูป History เพื่อดึงรายชื่อที่ไม่ซ้ำ
             history.forEach(item => {
-                // เราใช้ชื่อเป็น Key (ถ้าชื่อซ้ำ จะยึดข้อมูลล่าสุดที่เจอ)
                 if (!uniqueCustomers[item.name]) {
                     uniqueCustomers[item.name] = {
                         name: item.name,
                         address: item.address,
-                        subdistrict: item.subdistrict, // ต้องมีข้อมูลย่อยเหล่านี้ใน history
+                        subdistrict: item.subdistrict, 
                         district: item.district,
                         province: item.province,
                         idCard: item.idCard
@@ -336,7 +331,7 @@
 
             const customerArray = Object.values(uniqueCustomers);
             localStorage.setItem('savedCustomers_v1', JSON.stringify(customerArray));
-            loadSavedCustomers(); // อัปเดต Dropdown ทันที
+            loadSavedCustomers(); 
         }
 
         function loadSavedCustomers() {
@@ -413,14 +408,12 @@
                 id: Date.now(),
                 date: document.getElementById('receipt_date_text').value,
                 name: name,
-                // --- จุดสำคัญ: ต้องบันทึกที่อยู่แบบแยกส่วนลง History ด้วย เพื่อใช้กู้คืนรายชื่อ ---
                 address: addr,
                 subdistrict: sub,
                 district: dist,
                 province: prov,
                 fullAddress: fullAddress, 
                 idCard: idCard,
-                // -----------------------------------------------------------------------
                 paymentFor: document.getElementById('payment_for').value,
                 amount: rawAmount,
                 type: paymentType,
@@ -438,7 +431,7 @@
             history.unshift(data);
             localStorage.setItem('myReceipts_v10', JSON.stringify(history));
 
-            // 2. สั่ง Sync รายชื่อลูกค้าใหม่ทันที (เพื่อให้ชื่อใหม่ไปโผล่ใน Dropdown)
+            // 2. สั่ง Sync รายชื่อลูกค้าใหม่ทันที
             rebuildCustomersFromHistory();
 
             alert('✅ บันทึกข้อมูลเรียบร้อย');
@@ -467,28 +460,24 @@
             `).join('');
         }
 
-        // ลบรายการเดียว -> แล้ว Sync รายชื่อใหม่
         function deleteSingleHistory(id) {
             if(confirm('ยืนยันที่จะลบรายการนี้? (หากลบแล้ว รายชื่อนี้ไม่มีประวัติเหลืออยู่ จะหายไปจากตัวเลือกด้วย)')) {
                 let history = JSON.parse(localStorage.getItem('myReceipts_v10') || '[]');
-                history = history.filter(item => item.id !== id); // เอาเฉพาะที่ไม่ตรงกับ ID นี้
+                history = history.filter(item => item.id !== id); 
                 localStorage.setItem('myReceipts_v10', JSON.stringify(history));
                 
-                // *** จุดสำคัญ: สร้าง Dropdown ใหม่จาก History ที่เหลือ ***
                 rebuildCustomersFromHistory();
-                
                 loadHistory();
             }
         }
 
-        // ลบทั้งหมด -> ลบรายชื่อทั้งหมดด้วย
         function clearHistoryWithConfirm() {
             if(confirm('⚠️ คำเตือน: ล้าง "ประวัติรายการทั้งหมด"?\n(รายชื่อลูกค้าในตัวเลือกจะถูกลบทั้งหมดด้วย)')) {
-                localStorage.removeItem('myReceipts_v10');     // ลบประวัติ
-                localStorage.removeItem('savedCustomers_v1');  // ลบรายชื่อที่จำไว้
+                localStorage.removeItem('myReceipts_v10');     
+                localStorage.removeItem('savedCustomers_v1');  
                 
-                loadHistory();       // เคลียร์รายการหน้าจอ
-                loadSavedCustomers(); // เคลียร์ Dropdown
+                loadHistory();      
+                loadSavedCustomers();
                 
                 alert('✅ ล้างข้อมูลทั้งหมดเรียบร้อย');
             }
